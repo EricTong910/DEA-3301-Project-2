@@ -659,6 +659,7 @@ td{font-size:14px}
 .plan-marker{z-index:2;position:absolute;transform:translate(-50%,-50%);padding:5px 8px;min-height:27px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;border:1px solid #243e45;background:rgba(255,255,255,.94);box-shadow:0 1px 8px rgba(0,0,0,.19);font-size:11px;line-height:1.1;font-weight:850;color:#23373c;text-align:center;white-space:nowrap}
 .plan-marker:hover,.plan-marker:focus-visible{z-index:5;background:#244d62;color:white;outline:2px solid #267299;outline-offset:2px}
 .plan-marker.marker-room{background:#e9f3f5;border-color:#367b9c;color:#174962}
+.plan-marker.marker-zone{background:#fffaf0;border-color:#b47a4a;color:#49382b;font-size:10px;max-width:150px;white-space:normal}
 .plan-marker.marker-entry{background:#315e50;color:#fff;border-color:#315e50}
 .plan-marker.is-destination{z-index:4;background:#267299;color:#fff;border:2px solid #fff;box-shadow:0 0 0 3px #267299,0 2px 12px #183c5d80}
 .plan-marker.is-muted{opacity:.72}
@@ -913,13 +914,13 @@ const spaces = [
   {id:'work', name:'Collaboration & Work Zone', image:'work', alt:'Oak studio tables with student drawings on a pin-up wall', description:'Spread out a project, work alongside your team, or stop for an informal desk crit.', activities:'Individual work · Team projects · Desk crits', href:'book/desk', cta:'Reserve a desk'},
   {id:'shop', name:'Fabrication & Model Shop', image:'shop', alt:'Hands arranging a model beside a 3D printer', description:'Build a study model and learn to use the studio’s 3D printer or large-format plotter.', activities:'Model making · Prototyping · Printing', href:'book/shop', cta:'Reserve equipment'},
   {id:'forum', name:'Forum', image:'forum', alt:'A small group attends a design studio talk', description:'Join a workshop, see student projects, or take part in a public conversation.', activities:'Talks · Panels · Workshops · Town halls', href:'book/forum', cta:'Browse forum events'},
-  {id:'mentor', name:'Mentorship & Focus Rooms', image:'enclaveInterior', alt:'Team B Enclave interior with a meeting table, chairs and glazed partition', description:'Meet one-on-one for a portfolio review or work quietly away from the shared studio.', activities:'Portfolio reviews · Career coaching · Focused work', href:'book/review', cta:'Book a portfolio review'},
+  {id:'mentor', name:'Mentorship Enclaves', image:'enclaveInterior', alt:'Team B Enclave interior with a meeting table, chairs and glazed partition', description:'Meet one-on-one for a portfolio review in one of four numbered Enclaves, each connected to the shared corridor.', activities:'Portfolio reviews · Career coaching · Focused work', href:'book/review', cta:'Book a portfolio review'},
   {id:'cafe', name:'Café Gallery', image:'gallery', alt:'Student design models displayed in a gallery', description:'See student work on display or propose a piece for the next exhibition.', activities:'Student exhibitions · Open calls · Gallery visits', href:'book/gallery', cta:'Visit or submit work'},
   {id:'kitchen', name:'Kitchenette', description:'Take a break and catch up with others between studio sessions.', activities:'Breaks · Informal conversation', note:'Walk in as part of your studio visit.'},
   {id:'entry', name:'Private Entry', description:'Look for The Confluence mark when you arrive and check in before heading to your room or event.', activities:'Arrival · Check-in · Wayfinding', href:'visit', cta:'Open My Visit'}
 ];
 const services = {
-  review: {title:'Book a portfolio review', group:'Mentorship & Focus Rooms', image:'hero', desc:'Bring a portfolio or a work in progress for a 30-minute conversation with a design mentor.', action:'Confirm portfolio review', link:'Book a review'},
+  review: {title:'Book a portfolio review', group:'Mentorship Enclaves', image:'hero', desc:'Bring a portfolio or a work in progress for a 30-minute conversation with a design mentor.', action:'Confirm portfolio review', link:'Book a review'},
   desk: {title:'Reserve a shared desk', group:'Collaboration & Work Zone', image:'work', desc:'Choose a single desk or a set of adjacent seats for your group.', action:'Confirm desk reservation', link:'Find a desk'},
   shop: {title:'Reserve shop equipment', group:'Fabrication & Model Shop', image:'shop', desc:'Choose a tool, check its use requirements, and reserve a time to work.', action:'Confirm equipment reservation', link:'See tools'},
   forum: {title:'RSVP for a forum event', group:'Forum', image:'forum', desc:'See who each event is open to and when to arrive before saving your spot.', action:'Confirm RSVP', link:'Browse events'},
@@ -928,10 +929,10 @@ const services = {
 const dates = {mon:'Mon, Nov 16', wed:'Wed, Nov 18'};
 const dayNames = {mon:'Monday', wed:'Wednesday'};
 const reviewRooms = [
-  {name:'Enclave 1',row:'Lower row',side:'south',code:'102',size:'148 SF'},
-  {name:'Enclave 2/3',row:'Lower row',side:'south',code:'103',size:'244 SF'},
-  {name:'Enclave 4',row:'Upper row',side:'north',code:'104',size:'187 SF'},
-  {name:'Enclave 5',row:'Upper row',side:'north',code:'105',size:'268 SF'}
+  {name:'Enclave 1',row:'Upper row',side:'north',code:'102',size:'148 SF'},
+  {name:'Enclave 2',row:'Upper row',side:'north',code:'103',size:'244 SF'},
+  {name:'Enclave 3',row:'Lower row',side:'south',code:'104',size:'187 SF'},
+  {name:'Enclave 4',row:'Lower row',side:'south',code:'105',size:'268 SF'}
 ];
 const reviewRoom = 'Enclave 1';
 const equipment = [['3D Printer','3D Printer · Guided session'],['Plotter','Plotter · Self-service']];
@@ -978,7 +979,9 @@ let clock = 'before';
 function loadEntries() {
   try {
     const value = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    return Array.isArray(value) ? value : [];
+    if (!Array.isArray(value)) return [];
+    const roomMigration = {'Enclave 2/3':'Enclave 2','Enclave 4':'Enclave 3','Enclave 5':'Enclave 4'};
+    return value.map(entry => entry.type==='review' && roomMigration[entry.resource] ? {...entry,resource:roomMigration[entry.resource]} : entry);
   } catch {
     return [];
   }
@@ -1069,32 +1072,42 @@ function home() {
   </div>`;
 }
 const studioMapZones = [
-  ['work','Work Zone'],
-  ['shop','Model Shop'],
-  ['mentor','Mentorship & Focus'],
-  ['entry','Private Entry'],
-  ['cafe','Café Gallery'],
+  ['work','Multi-Collaborative Workzone'],
+  ['shop','Fabrication & Model Shop'],
   ['forum','Forum'],
-  ['kitchen','Kitchenette']
+  ['mentor','Semi-Private Zone'],
+  ['mentor','Mentorship Enclaves'],
+  ['entry','Private Entry + Reception'],
+  ['cafe','Café Exhibition'],
+  ['kitchen','Kitchenette + Seating'],
+  ['zone','Storage / Lockers'],
+  ['zone','Shared Corridor / Circulation'],
+  ['zone','Secondary Entry Lounge']
 ];
 function studioMap(visitItem) {
   const directions = Boolean(visitItem && visitItem.type==='review');
   const destination = directions ? reviewRooms.find(r=>r.name===visitItem.resource) : null;
   const target = destination || reviewRooms[0];
   const upper = target.side==='north';
-  const endpoint = {'Enclave 1':[1250,357],'Enclave 2/3':[1440,354],'Enclave 4':[1480,176],'Enclave 5':[1750,177]}[target.name];
+  const endpoint = {'Enclave 1':[1480,176],'Enclave 2':[1750,177],'Enclave 3':[1250,357],'Enclave 4':[1440,354]}[target.name];
   const path = upper
     ? `M315 415 L315 340 L1000 340 L1100 300 L${endpoint[0]} 285 L${endpoint[0]} ${endpoint[1]}`
     : `M315 415 L315 340 L1000 340 L1100 325 L${endpoint[0]} ${endpoint[1]}`;
   const markers = [
-    {x:12.2,y:78.0,name:'Private Entry',tag:'entry',href:'studio/entry'},
-    {x:8.0,y:24.0,name:'Fabrication Lab',tag:'shop',href:'studio/shop'},
-    {x:33.0,y:20.0,name:'Forum',tag:'forum',href:'studio/forum'},
-    {x:22.0,y:67.0,name:'Kitchenette',tag:'kitchen',href:'studio/kitchen'},
-    {x:52.7,y:77.4,name:'Enclave 1',tag:'room',href:'book/review/mon/'+encodeURIComponent('Enclave 1')},
-    {x:62.0,y:77.4,name:'Enclave 2/3',tag:'room',href:'book/review/mon/'+encodeURIComponent('Enclave 2/3')},
-    {x:63.0,y:22.5,name:'Enclave 4',tag:'room',href:'book/review/mon/'+encodeURIComponent('Enclave 4')},
-    {x:75.0,y:22.5,name:'Enclave 5',tag:'room',href:'book/review/mon/'+encodeURIComponent('Enclave 5')}
+    {x:12.2,y:78.0,name:'Private Entry + Reception',badge:'Check in here',tag:'entry',href:'studio/entry'},
+    {x:8.0,y:24.0,name:'01 · Fabrication & Model Shop',tag:'zone',href:'studio/shop'},
+    {x:25.0,y:30.0,name:'02 · Multi-Collaborative Workzone',tag:'zone',href:'studio/work'},
+    {x:33.0,y:20.0,name:'03 · Forum',tag:'zone',href:'studio/forum'},
+    {x:44.0,y:40.0,name:'04 · Semi-Private Zone',tag:'zone',href:'studio/mentor'},
+    {x:22.0,y:67.0,name:'09 · Kitchenette + Seating',tag:'zone',href:'studio/kitchen'},
+    {x:35.0,y:74.0,name:'07 · Storage / Lockers',tag:'zone',href:'studio/entry'},
+    {x:39.0,y:53.0,name:'10 · Shared Corridor / Circulation',tag:'zone',href:'studio/entry'},
+    {x:52.7,y:77.4,name:'Enclave 3',tag:'room',href:'book/review/mon/'+encodeURIComponent('Enclave 3')},
+    {x:62.0,y:77.4,name:'Enclave 4',tag:'room',href:'book/review/mon/'+encodeURIComponent('Enclave 4')},
+    {x:63.0,y:22.5,name:'Enclave 1',tag:'room',href:'book/review/mon/'+encodeURIComponent('Enclave 1')},
+    {x:75.0,y:22.5,name:'Enclave 2',tag:'room',href:'book/review/mon/'+encodeURIComponent('Enclave 2')},
+    {x:83.0,y:20.0,name:'06 · Secondary Entry Lounge',tag:'zone',href:'studio/entry'},
+    {x:89.0,y:67.0,name:'11 · Café Exhibition',tag:'zone',href:'studio/cafe'}
   ];
   return `<section class="studio-map ${directions ? 'with-route' : ''}" aria-labelledby="studio-map-title">
     <header class="studio-map-head"><div>
@@ -1105,7 +1118,7 @@ function studioMap(visitItem) {
     <div class="studio-map-body">
       <div class="floor-map-scroll" tabindex="0" aria-label="Scrollable floor plan showing the entry, circulation, and review Enclaves">
         <div class="floor-map-stage" role="group" aria-label="Architectural floor plan with clickable destinations">
-          <img src="${embeddedImages.floorPlan}" alt="Team B architectural plan showing the entry at the west end, Forum, kitchenette, and Enclaves 1, 2/3, 4 and 5 to the east" />
+          <img src="${embeddedImages.floorPlan}" alt="Team B architectural plan with eleven color-coded zones, Private Entry at the lower left, shared circulation, and Enclaves 1 and 2 on the upper row with Enclaves 3 and 4 on the lower row" />
           ${directions ? `<svg class="actual-route-svg" viewBox="0 0 2367 540" preserveAspectRatio="none" aria-hidden="true">
             <path class="actual-route-halo" d="${path}"/><path class="actual-route-path" d="${path}"/>
             <circle cx="315" cy="415" r="10" class="actual-route-start"/><circle cx="${endpoint[0]}" cy="${endpoint[1]}" r="11" class="actual-route-end" />
@@ -1113,7 +1126,7 @@ function studioMap(visitItem) {
           ${markers.map(mark=>{
             const selected = directions && mark.name===target.name;
             const faded = directions && mark.tag==='room' && !selected;
-            return `<a class="plan-marker marker-${mark.tag} ${selected?'is-destination':''} ${faded?'is-muted':''}" style="left:${mark.x}%;top:${mark.y}%" href="#${mark.href}" aria-label="${mark.tag==='room'?'Reserve':'Explore'} ${esc(mark.name)}"><span>${esc(mark.name)}</span></a>`;
+            return `<a class="plan-marker marker-${mark.tag} ${selected?'is-destination':''} ${faded?'is-muted':''}" style="left:${mark.x}%;top:${mark.y}%" href="#${mark.href}" aria-label="${mark.tag==='room'?'Reserve':'Explore'} ${esc(mark.name)}"><span>${esc(mark.name)}</span>${mark.badge ? `<small>${esc(mark.badge)}</small>` : ''}</a>`;
           }).join('')}
         </div>
       </div>
@@ -1140,8 +1153,10 @@ function studioDirectory() {
     </header>
     ${studioMap()}
     <section class="explore-real-renders" aria-label="Design-development interior visualizations">
-      <figure><img src="${embeddedImages.enclaveInterior}" alt="Enclave meeting space showing a review table, orange upholstered chairs and glass partitions"><figcaption><strong>Portfolio Review Enclaves</strong><span>Interior rendering · Team B</span></figcaption></figure>
-      <figure><img src="${embeddedImages.doorRender}" alt="Two glazed rooms with a touchscreen check-in panel mounted outside each doorway"><figcaption><strong>At the Enclave door</strong><span>Room displays and sign-in touchpoints</span></figcaption></figure>
+      <figure><img src="${embeddedImages.enclaveInterior}" alt="Enclave 1 interior meeting space"><figcaption><strong>Enclave 1</strong><span>Upper row · portfolio review interior</span></figcaption></figure>
+      <figure><img src="${embeddedImages.enclaveInterior2}" alt="Enclave 2 interior meeting space"><figcaption><strong>Enclave 2</strong><span>Upper row · portfolio review interior</span></figcaption></figure>
+      <figure><img src="${embeddedImages.doorRender}" alt="Enclaves 3 and 4 with touchscreen sign-in panels outside the doors"><figcaption><strong>Enclaves 3–4</strong><span>Lower row · door displays</span></figcaption></figure>
+      <figure><img src="${embeddedImages.doorDetail}" alt="Door-mounted room display for the assigned Enclave"><figcaption><strong>Room Display</strong><span>Now / Up Next · Sign in to Room</span></figcaption></figure>
     </section>
     <section class="studio-cluster" aria-labelledby="studio-work-title">
       <h2 id="studio-work-title">Work & learn</h2>
